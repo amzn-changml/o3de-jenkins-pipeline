@@ -477,6 +477,91 @@ jenkins:
         type: C6a4xlarge
         useEphemeralDevices: false
         zone: "us-west-2a"
+      - ami: "ami-0135d1b0f79a6e9d6"
+        amiType:
+          unixData:
+            sshPort: "22"
+        associatePublicIp: false
+        connectBySSHProcess: false
+        connectionStrategy: PRIVATE_IP
+        deleteRootOnTermination: false
+        description: "Signing_WIN2022_INC_2"
+        ebsEncryptRootVolume: ENCRYPTED
+        ebsOptimized: true
+        hostKeyVerificationStrategy: ACCEPT_NEW
+        iamInstanceProfile: "arn:aws:iam::${/jenkins/config/accountid}:instance-profile/jenkins-build-node"
+        idleTerminationMinutes: "30"
+        javaPath: "java"
+        labelString: "windows-packaging-2"
+        launchTimeoutStr: "600"
+        maxTotalUses: 1
+        metadataEndpointEnabled: true
+        metadataHopsLimit: 1
+        metadataSupported: true
+        metadataTokensRequired: false
+        minimumNumberOfInstances: 0
+        minimumNumberOfSpareInstances: 0
+        mode: EXCLUSIVE
+        monitoring: false
+        numExecutors: 1
+        remoteAdmin: "lybuilder"
+        remoteFS: "c:/ly"
+        securityGroups: "sg-02861eb82b97b4d53, sg-0f8806ae5fa713ccb"
+        stopOnTerminate: false
+        subnetId: "subnet-04f016990a8d061d6"
+        t2Unlimited: false
+        tags:
+        - name: "Name"
+          value: "Signing_WIN2022_INC_2"
+        tenancy: Default
+        tmpDir: "c:\\\\ly"
+        type: C6a4xlarge
+        useEphemeralDevices: false
+        userData: |
+          <powershell>
+          # Get the ARN from Jenkins global variable
+          $secretId = $env:SIGNING_VARIABLES_NAME
+
+          # Get the secret JSON from AWS Secrets Manager
+          $secretJson = aws secretsmanager get-secret-value --secret-id $secretId --query SecretString --output text
+
+          # Convert the JSON string to a PowerShell object
+          $secretsObj = $secretJson | ConvertFrom-Json
+
+          # Iterate through all properties and set them as environment variables
+          $secretsObj.PSObject.Properties | ForEach-Object {
+              $name = $_.Name
+              $value = $_.Value
+              
+              # Set as environment variable (machine level)
+              [System.Environment]::SetEnvironmentVariable($name, $value, [System.EnvironmentVariableTarget]::Machine)
+              
+              # Also set for current process
+              [System.Environment]::SetEnvironmentVariable($name, $value, [System.EnvironmentVariableTarget]::Process)
+              
+              Write-Host "Set environment variable: $name"
+          }
+
+          Write-Host "All secrets from $secretsArn have been set as environment variables"
+
+          # Get parameter name from environment variable
+          $parameterName = $env:METADATA_PARAMETER_NAME
+
+          # Get secure string from AWS Parameter Store
+          $secureString = aws ssm get-parameter --name $parameterName --with-decryption --query "Parameter.Value" --output text
+
+          # Determine home directory path
+          $homePath = $env:USERPROFILE
+          
+          # Create the full path for metadata.json
+          $metadataPath = Join-Path -Path $homePath -ChildPath "metadata.json"
+          
+          # Write the secure string to metadata.json
+          $secureString | Out-File -FilePath $metadataPath -Encoding utf8
+          
+          Write-Host "Secure string from Parameter Store written to $metadataPath"
+          </powershell>
+        zone: "us-west-2a"
       - ami: "ami-02be6a7155ba45614"
         amiType:
           unixData:
